@@ -1,0 +1,55 @@
+name: Bump Cra
+
+# Points Casks/cra.rb at Cra's latest release. The checksums come from the release's
+# own SHA256SUMS.txt, so nothing is downloaded but that file. Runs every hour; the
+# Cra release workflow doesn't call it, so a new release reaches brew within the hour.
+# (Installed copies don't wait: Cra updates itself, and the cask says auto_updates.)
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bump-cra
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Update the cask
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="$(gh release view --repo VictorKildahl/cra --json tagName --jq .tagName)"
+          version="${tag#v}"
+          current="$(sed -n 's/^  version "\(.*\)"$/\1/p' Casks/cra.rb)"
+          [ -n "$current" ] || { echo "No version line in Casks/cra.rb" >&2; exit 1; }
+          if [ "$version" = "$current" ]; then echo "Up to date at $current"; exit 0; fi
+
+          gh release download "$tag" --repo VictorKildahl/cra --pattern SHA256SUMS.txt --output sums.txt
+          arm="$(awk '$2 == "Cra.dmg" { print $1 }' sums.txt)"
+          intel="$(awk '$2 == "Cra-Intel.dmg" { print $1 }' sums.txt)"
+          rm sums.txt
+          for sum in "$arm" "$intel"; do
+            [[ "$sum" =~ ^[0-9a-f]{64}$ ]] || { echo "Bad checksum in $tag's SHA256SUMS.txt: '$sum'" >&2; exit 1; }
+          done
+
+          sed -i \
+            -e "s/^  version \".*\"$/  version \"$version\"/" \
+            -e "s/^  sha256 arm:   \"[0-9a-f]*\",$/  sha256 arm:   \"$arm\",/" \
+            -e "s/^         intel: \"[0-9a-f]*\"$/         intel: \"$intel\"/" \
+            Casks/cra.rb
+          grep -q "$arm" Casks/cra.rb && grep -q "$intel" Casks/cra.rb && grep -q "version \"$version\"" Casks/cra.rb \
+            || { echo "Casks/cra.rb didn't take the new version; its layout changed" >&2; exit 1; }
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "cra $version"
+          git push
