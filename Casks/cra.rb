@@ -1,9 +1,9 @@
 cask "cra" do
   arch intel: "-Intel"
 
-  version "0.1.51"
-  sha256 arm:   "7af016beefbc38c5cf7c8b5942e60717982477c1a05453515c251e863aded2af",
-         intel: "877d5c82da660960d0edcd1e1f857109b6ba7c174d1c177e27ec18f12a905d64"
+  version "0.1.52"
+  sha256 arm:   "278aa102d189f4a73fae9f7c02d6033452848c18cc7d92d5a867974f3862b009",
+         intel: "bf104209af00edc196e8546c2d4ec0ae44089c27d6b3dcf7621e1507b2032e35"
 
   url "https://github.com/VictorKildahl/cra/releases/download/v#{version}/Cra#{arch}.dmg"
   name "Cra"
